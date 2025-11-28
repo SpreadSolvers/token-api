@@ -34,10 +34,9 @@ pub struct EvmToken {
 pub async fn get_token_data_from_chain(
     chain_id: i32,
     address: Address,
+    rpc_url: String,
 ) -> Result<EvmToken, Box<dyn Error>> {
-    let rpc_url = "https://eth.llamarpc.com";
-
-    let Ok(provider) = ProviderBuilder::new().connect(rpc_url).await else {
+    let Ok(provider) = ProviderBuilder::new().connect(&rpc_url).await else {
         error!("Failed to connect to RPC");
         return Err(Box::new(std::io::Error::new(
             std::io::ErrorKind::Other,

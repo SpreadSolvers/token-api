@@ -4,10 +4,13 @@ mod evm_token;
 mod schema;
 
 use actix_web::{
-    App, HttpResponse, HttpServer, Responder, get, http::header::ContentType, web::Path,
+    App, HttpResponse, HttpServer, Responder, get,
+    http::header::ContentType,
+    web::{Data, Json, Path},
 };
 use alloy::primitives::Address;
 use log::{error, info, warn};
+use serde::Deserialize;
 use tap_caip::{AccountId, ChainId};
 
 use crate::{
@@ -39,9 +42,17 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
+#[derive(Deserialize)]
+struct RpcUrl {
+    rpc_url: String,
+}
+
 #[get("/tokens/evm/{chain_id}/{evm_address}")]
-async fn get_evm_token(path: Path<(i32, String)>) -> impl Responder {
+async fn get_evm_token(path: Path<(i32, String)>, data: Json<RpcUrl>) -> impl Responder {
     let (chain_id, evm_address) = path.into_inner();
+    let rpc_url = data.into_inner().rpc_url;
+
+    info!("RPC URL: {:?}", rpc_url);
 
     info!(
         "Getting EVM token: {:?}, {:?}",
@@ -85,7 +96,7 @@ async fn get_evm_token(path: Path<(i32, String)>) -> impl Responder {
         return HttpResponse::BadRequest().body("Invalid EVM address");
     };
 
-    let token = get_token_data_from_chain(chain_id, address).await;
+    let token = get_token_data_from_chain(chain_id, address, rpc_url).await;
 
     return match token {
         Ok(token) => {
