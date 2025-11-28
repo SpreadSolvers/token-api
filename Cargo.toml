@@ -1,0 +1,18 @@
+[package]
+name = "token-api"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+actix-web = "4.12.1"
+serde = "1.0.228"
+serde_json = "1.0.145"
+diesel = { version = "2.2.0", features = [
+	"sqlite",
+	"returning_clauses_for_sqlite_3_35",
+] }
+dotenv = "0.15.0"
+env_logger = "0.11.8"
+log = "0.4.28"
+alloy = "1.1.2"
+tap-caip = "0.4.0"
