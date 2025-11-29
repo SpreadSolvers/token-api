@@ -26,7 +26,7 @@ async fn main() -> std::io::Result<()> {
     info!("Hello, world!");
 
     let port = 8080;
-    let host = "localhost";
+    let host = "0.0.0.0";
     let workers = 2;
 
     info!("Starting server on port {}", port);
