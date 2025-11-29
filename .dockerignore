@@ -1,0 +1,7 @@
+target/
+.git/
+.gitignore
+.env
+db/database.db
+*.md
+.vscode/
