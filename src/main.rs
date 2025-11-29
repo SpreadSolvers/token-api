@@ -6,6 +6,7 @@ mod schema;
 use actix_web::{
     App, HttpResponse, HttpServer, Responder, get,
     http::header::ContentType,
+    post,
     web::{Data, Json, Path},
 };
 use alloy::primitives::Address;
@@ -47,7 +48,7 @@ struct RpcUrl {
     rpc_url: String,
 }
 
-#[get("/tokens/evm/{chain_id}/{evm_address}")]
+#[post("/tokens/evm/{chain_id}/{evm_address}")]
 async fn get_evm_token(path: Path<(i32, String)>, data: Json<RpcUrl>) -> impl Responder {
     let (chain_id, evm_address) = path.into_inner();
     let rpc_url = data.into_inner().rpc_url;
