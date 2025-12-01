@@ -1,37 +1,42 @@
-mod db;
-mod erc20;
-mod evm_token;
-mod schema;
+use std::env;
 
 use actix_web::{
     App, HttpResponse, HttpServer, Responder, get,
     http::header::ContentType,
-    web::{Json, Path},
+    web::{Data, Json, Path},
 };
 use alloy::primitives::Address;
-use log::{error, info, warn};
+use dotenv::dotenv;
+use log::{error, info};
 use serde::Deserialize;
-use tap_caip::{AccountId, ChainId};
 
-use crate::{
-    db::establish_connection,
-    evm_token::{find_token_by_id, get_token_data_from_chain, save_evm_token},
+use token_api::{
+    repositories::sqlite::evm_token::SqliteEvmTokenRepository,
+    services::evm::{EvmTokenService, error::EvmTokenServiceError},
 };
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
+    dotenv().ok();
 
-    info!("Hello, world!");
+    info!("Hello, world full of tokens!");
 
     let port = 8080;
     let host = "localhost";
     let workers = 2;
 
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    let evm_token_repository = SqliteEvmTokenRepository::new(database_url);
+
+    let evm_token_service = EvmTokenService::new(evm_token_repository);
+
     info!("Starting server on port {}", port);
 
     HttpServer::new(move || {
         App::new()
+            .app_data(Data::new(evm_token_service.clone()))
             .service(hello_world)
             .service(get_evm_token)
             .service(get_solana_token)
@@ -48,7 +53,11 @@ struct RpcUrl {
 }
 
 #[get("/tokens/evm/{chain_id}/{evm_address}")]
-async fn get_evm_token(path: Path<(i32, String)>, data: Json<RpcUrl>) -> impl Responder {
+async fn get_evm_token(
+    path: Path<(i32, String)>,
+    data: Json<RpcUrl>,
+    evm_token_service: Data<EvmTokenService>,
+) -> impl Responder {
     let (chain_id, evm_address) = path.into_inner();
     let rpc_url = data.into_inner().rpc_url;
 
@@ -60,58 +69,55 @@ async fn get_evm_token(path: Path<(i32, String)>, data: Json<RpcUrl>) -> impl Re
         evm_address.to_string()
     );
 
-    let mut connection = establish_connection();
-
-    let Ok(checked_address) = evm_address.to_string().parse::<Address>() else {
+    let Ok(checked_address) = evm_address.parse::<Address>() else {
         error!("Invalid EVM address: {}", evm_address);
         return HttpResponse::BadRequest().body("Invalid EVM address");
     };
 
-    let caip_account_id = match AccountId::new(
-        ChainId::new("eip155", &chain_id.to_string()).unwrap(),
-        &checked_address.to_checksum(None),
-    ) {
-        Ok(account_id) => account_id,
-        Err(e) => {
-            error!("Error creating CAIP account id: {:?}", e);
-            return HttpResponse::BadRequest().body("Error creating CAIP account id");
-        }
-    };
-
-    match find_token_by_id(&mut connection, caip_account_id) {
-        Ok(token) => {
-            info!("Found token by id: {:?}", token.id);
-            return HttpResponse::Ok()
-                .content_type(ContentType::json())
-                .body(serde_json::to_string(&token).expect("Failed to serialize token"));
-        }
-        Err(e) => {
-            dbg!(&e);
-            warn!("Not found token by id: {:?}", e);
-        }
-    }
-
-    let Ok(address) = evm_address.parse::<Address>() else {
-        error!("Invalid EVM address: {}", evm_address);
-        return HttpResponse::BadRequest().body("Invalid EVM address");
-    };
-
-    let token = get_token_data_from_chain(chain_id, address, rpc_url).await;
+    let token = evm_token_service
+        .get_or_fetch_token(chain_id, checked_address, rpc_url)
+        .await;
 
     return match token {
-        Ok(token) => {
-            let _ = save_evm_token(&mut connection, &token).map_err(|e| {
-                error!("Error saving EVM token: {:?}", e);
-                HttpResponse::InternalServerError().body("Error saving EVM token")
-            });
+        Ok(token) => HttpResponse::Ok()
+            .content_type(ContentType::json())
+            .body(serde_json::to_string(&token).expect("Failed to serialize token")),
 
-            HttpResponse::Ok()
-                .content_type(ContentType::json())
-                .body(serde_json::to_string(&token).expect("Failed to serialize token"))
-        }
         Err(e) => {
             error!("Error getting EVM token: {:?}", e);
-            HttpResponse::InternalServerError().body("Error getting EVM token")
+            match e {
+                EvmTokenServiceError::Repository(e) => {
+                    error!("Repository error: {:?}", e);
+                    HttpResponse::InternalServerError().body("Repository error")
+                }
+                EvmTokenServiceError::Chain(e) => {
+                    error!("Chain error: {:?}", e);
+                    HttpResponse::InternalServerError().body("Chain error")
+                }
+                EvmTokenServiceError::Multicall(e) => {
+                    error!("Multicall error: {:?}", e);
+                    HttpResponse::InternalServerError().body("Multicall error")
+                }
+                EvmTokenServiceError::ChainIdMismatch(expected, actual) => {
+                    error!(
+                        "Chain ID mismatch: expected {:?}, got {:?}",
+                        expected, actual
+                    );
+                    HttpResponse::BadRequest()
+                        .body("Provided chain ID argument and chain id from RPC mismatch")
+                }
+                EvmTokenServiceError::CaipIdBuildFailed(e) => {
+                    error!("CAIP ID build failed: {:?}", e);
+                    HttpResponse::BadRequest().body(format!(
+                        "Failed to build CAIP ID for token with provided address and chain ID: {}",
+                        e
+                    ))
+                }
+                EvmTokenServiceError::BlockingError(e) => {
+                    error!("Blocking error: {:?}", e);
+                    HttpResponse::InternalServerError().body("Blocking error: failed to get token")
+                }
+            }
         }
     };
 }
