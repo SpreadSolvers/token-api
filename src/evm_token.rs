@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Display};
+use std::error::Error;
 
 use crate::{erc20::ERC20, schema::evm_tokens};
 use alloy::{

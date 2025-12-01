@@ -6,7 +6,7 @@ mod schema;
 use actix_web::{
     App, HttpResponse, HttpServer, Responder, get,
     http::header::ContentType,
-    web::{Data, Json, Path},
+    web::{Json, Path},
 };
 use alloy::primitives::Address;
 use log::{error, info, warn};
