@@ -21,7 +21,3 @@ pub struct EvmTokenDetails {
     pub chain_id: ChainId,
     pub address: Address,
 }
-
-pub struct SolanaTokenDetails {
-    address: String, // base58 encoded address
-}
