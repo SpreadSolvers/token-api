@@ -3,3 +3,10 @@
 
 **/.DS_Store
 db
+
+# IDE
+.cursorignore
+.vscode
+
+# Reference
+reth
