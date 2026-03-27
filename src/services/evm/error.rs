@@ -24,12 +24,6 @@ pub enum EvmTokenServiceError {
     BlockingError(BlockingError),
 }
 
-// impl Display for EvmTokenServiceError {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "EvmTokenServiceError: {}", self)
-//     }
-// }
-
 impl From<RepoError> for EvmTokenServiceError {
     fn from(error: RepoError) -> Self {
         EvmTokenServiceError::Repository(error)
