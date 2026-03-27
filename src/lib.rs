@@ -1,4 +1,6 @@
 pub mod repositories;
 mod schema;
 pub mod services;
-mod token;
+pub mod token;
+
+pub mod handlers;
