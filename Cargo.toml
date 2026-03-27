@@ -17,3 +17,5 @@ env_logger = "0.11.8"
 log = "0.4.28"
 alloy = "1.1.2"
 tap-caip = "0.4.0"
+jsonrpc-v2 = { version = "0.13.0", features = ["easy-errors"] }
+thiserror = "2.0.18"
