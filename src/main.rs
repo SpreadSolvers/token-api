@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, time::Duration};
 
 use actix_web::{App, HttpServer, web::Data};
 use dotenv::dotenv;
@@ -6,10 +6,16 @@ use jsonrpc_v2::Server;
 use log::info;
 
 use token_api::{
-    handlers::{get_evm_token_metadata, get_evm_token_metadata_with_default_rpc_url, hello_world},
+    handlers::{get_evm_token_metadata, get_evm_token_metadata_with_rpc_url, hello_world},
     repositories::sqlite::evm_token::SqliteEvmTokenRepository,
-    services::evm::EvmTokenService,
+    services::{
+        chainlist::ChainlistService, evm::EvmTokenService, provider::ProviderService,
+    },
 };
+
+const CHAINLIST_TTL: Duration = Duration::from_hours(24);
+/// How long to reuse the same Fallback [`RpcClient`] (keeps Alloy transport rankings; refresh picks up new Chainlist URLs).
+const PROVIDER_CACHE_TTL: Duration = Duration::from_secs(15 * 60);
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -36,13 +42,17 @@ async fn main() -> std::io::Result<()> {
 
     let evm_token_service = EvmTokenService::new(evm_token_repository);
 
+    let chainlist_service = ChainlistService::new(CHAINLIST_TTL);
+    let provider_service = ProviderService::new(chainlist_service.clone(), PROVIDER_CACHE_TTL);
+
     let rpc = Server::new()
         .with_data(jsonrpc_v2::Data::new(evm_token_service.clone()))
-        .with_method("eth_getTokenMetadataWithRpc", get_evm_token_metadata)
+        .with_data(jsonrpc_v2::Data::new(provider_service.clone()))
         .with_method(
-            "eth_getTokenMetadata",
-            get_evm_token_metadata_with_default_rpc_url,
+            "eth_getTokenMetadataWithRpc",
+            get_evm_token_metadata_with_rpc_url,
         )
+        .with_method("eth_getTokenMetadata", get_evm_token_metadata)
         .finish();
 
     info!("Starting server on port {}", port);

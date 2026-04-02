@@ -4514,7 +4514,9 @@ dependencies = [
  "tap-caip",
  "thiserror 2.0.18",
  "tokio",
+ "tower",
  "ttl_cache",
+ "url",
  "wiremock",
 ]
 

@@ -99,12 +99,12 @@ fn build_fallback_rpc_client(urls: &[String]) -> Result<RpcClient, ProviderServi
         .map(|s| Url::parse(s).map(Http::new))
         .collect::<Result<_, url::ParseError>>()?;
 
-    let active = NonZeroUsize::new(transports.len().min(FALLBACK_ACTIVE_CAP).max(1)).unwrap();
+    let active = NonZeroUsize::new(transports.len().min(FALLBACK_ACTIVE_CAP).max(1))
+        .expect("Active transport count must be non-zero");
     let layer = FallbackLayer::default().with_active_transport_count(active);
-    let service = ServiceBuilder::new().layer(layer).service(transports);
-
+    let transport = ServiceBuilder::new().layer(layer).service(transports);
     let is_local = urls.iter().any(|u| guess_local_url(u));
-    Ok(RpcClient::builder().transport(service, is_local))
+    Ok(RpcClient::builder().transport(transport, is_local))
 }
 
 #[cfg(test)]

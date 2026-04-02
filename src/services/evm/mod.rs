@@ -9,6 +9,7 @@ use actix_web::web;
 use alloy::{
     primitives::Address,
     providers::{Provider, ProviderBuilder},
+    rpc::client::RpcClient,
 };
 use tap_caip::{AccountId, ChainId};
 
@@ -31,9 +32,9 @@ impl EvmTokenService {
 
     pub async fn get_or_fetch_token(
         &self,
-        chain_id: i32,
+        chain_id: i64,
         address: Address,
-        rpc_url: String,
+        rpc: RpcClient,
     ) -> Result<Token<EvmTokenDetails>, EvmTokenServiceError> {
         let token_id: TokenId = TokenId::new(
             ChainId::new(EVM_NAMESPACE, &chain_id.to_string()).unwrap(),
@@ -49,7 +50,7 @@ impl EvmTokenService {
             return Ok(token);
         }
 
-        let token = Self::fetch_token(chain_id, address, rpc_url).await?;
+        let token = Self::fetch_token(chain_id, address, rpc).await?;
 
         self.repository.save(&token)?;
 
@@ -57,13 +58,13 @@ impl EvmTokenService {
     }
 
     async fn fetch_token(
-        chain_id: i32,
+        chain_id: i64,
         address: Address,
-        rpc_url: String,
+        rpc: RpcClient,
     ) -> Result<Token<EvmTokenDetails>, EvmTokenServiceError> {
-        let provider = ProviderBuilder::new().connect(&rpc_url).await?;
+        let provider = ProviderBuilder::new().connect_client(rpc);
 
-        let chain_id_from_provider = provider.get_chain_id().await?;
+        let chain_id_from_provider: u64 = provider.get_chain_id().await?;
 
         if chain_id_from_provider != chain_id as u64 {
             return Err(EvmTokenServiceError::ChainIdMismatch(
