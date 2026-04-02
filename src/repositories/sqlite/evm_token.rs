@@ -14,7 +14,7 @@ use crate::{
 #[diesel(table_name = crate::schema::evm_tokens)]
 pub struct DbEvmToken {
     pub id: String,
-    pub chain_id: i32,
+    pub chain_id: i64,
     pub address: String,
     pub symbol: String,
     pub decimals: i32,
@@ -95,20 +95,13 @@ impl Repository<Token<EvmTokenDetails>> for SqliteEvmTokenRepository {
 
         info!("Saving EVM token with id: {:?}", token.id);
 
-        let chain_id_numeric: ChainId = token
+        let chain_id: ChainId = token
             .id
             .chain_id()
             .reference()
             .to_string()
             .parse::<ChainId>()
             .map_err(|e| RepoError::Backend(format!("Failed to parse chain id: {}", e)))?;
-
-        let chain_id = i32::try_from(chain_id_numeric).map_err(|_| {
-            RepoError::Backend(format!(
-                "chain id {} does not fit i32 column",
-                chain_id_numeric
-            ))
-        })?;
 
         let new_token: DbEvmToken = DbEvmToken {
             id: token.id.to_string(),
