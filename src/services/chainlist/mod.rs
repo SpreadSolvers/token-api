@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use tokio::sync::RwLock;
@@ -23,12 +23,12 @@ struct CacheEntry {
 }
 
 impl ChainlistService {
-    pub fn new(ttl: Duration) -> Self {
+    pub fn new(ttl: std::time::Duration) -> Self {
         Self::with_client_and_url(ttl, reqwest::Client::new(), CHAINLIST_API_URL)
     }
 
     pub fn with_client_and_url(
-        ttl: Duration,
+        ttl: std::time::Duration,
         client: reqwest::Client,
         chains_url: impl Into<String>,
     ) -> Self {
@@ -43,12 +43,10 @@ impl ChainlistService {
         }
     }
 
-    /// All chains from cache when fresh, otherwise one HTTP fetch for all waiters (write lock).
     pub async fn chains(&self) -> Result<Vec<Chain>, reqwest::Error> {
         self.chains_shared().await.map(|v| (*v).clone())
     }
 
-    /// Cheaper when many callers only need read-only access (cheap `Arc` clone).
     pub async fn chains_shared(&self) -> Result<Arc<Vec<Chain>>, reqwest::Error> {
         let inner = self.inner.as_ref();
 
@@ -77,14 +75,34 @@ impl ChainlistService {
         Ok(chains)
     }
 
-    pub async fn chain_by_chain_id(&self, chain_id: i64) -> Result<Option<Chain>, reqwest::Error> {
+    pub async fn get_chain_data(&self, chain_id: i64) -> Result<Option<Chain>, reqwest::Error> {
         let chains = self.chains_shared().await?;
         Ok(chains.iter().find(|c| c.chain_id == chain_id).cloned())
+    }
+
+    /// Trimmed, non-empty RPC URLs from Chainlist for `chain_id` (no liveness checks).
+    pub async fn rpc_urls_for_chain(
+        &self,
+        chain_id: i64,
+    ) -> Result<Option<Vec<String>>, reqwest::Error> {
+        let Some(chain) = self.get_chain_data(chain_id).await? else {
+            return Ok(None);
+        };
+        Ok(Some(trimmed_rpc_urls(chain)))
     }
 
     fn is_fresh(entry: &CacheEntry, ttl: ChronoDuration) -> bool {
         Utc::now().signed_duration_since(entry.fetched_at) < ttl
     }
+}
+
+fn trimmed_rpc_urls(chain: Chain) -> Vec<String> {
+    chain
+        .rpc
+        .into_iter()
+        .map(|r| r.url.trim().to_owned())
+        .filter(|u| !u.is_empty())
+        .collect()
 }
 
 #[cfg(test)]
@@ -152,7 +170,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn chain_by_chain_id_returns_matching_chain() {
+    async fn get_chain_data_returns_matching_chain() {
         let server = MockServer::start().await;
         let url = format!("{}/rpcs.json", server.uri());
         Mock::given(method("GET"))
@@ -166,13 +184,13 @@ mod tests {
             reqwest::Client::new(),
             url,
         );
-        let c = svc.chain_by_chain_id(42).await.unwrap().expect("chain 42");
+        let c = svc.get_chain_data(42).await.unwrap().expect("chain 42");
         assert_eq!(c.chain_id, 42);
         assert_eq!(c.name, "Test Net");
     }
 
     #[tokio::test]
-    async fn chain_by_chain_id_returns_none_for_unknown_id() {
+    async fn get_chain_data_returns_none_for_unknown_id() {
         let server = MockServer::start().await;
         let url = format!("{}/rpcs.json", server.uri());
         Mock::given(method("GET"))
@@ -186,6 +204,56 @@ mod tests {
             reqwest::Client::new(),
             url,
         );
-        assert!(svc.chain_by_chain_id(999).await.unwrap().is_none());
+        assert!(svc.get_chain_data(999).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn rpc_urls_for_chain_trims_and_filters_empty() {
+        let server = MockServer::start().await;
+        let chain_json = json!([{
+            "name": "Trim",
+            "chain": "TRM",
+            "chainId": 42,
+            "rpc": [
+                { "url": "   " },
+                { "url": " https://a.test " },
+                { "url": "https://b.test" },
+            ],
+        }]);
+        let url = format!("{}/rpcs.json", server.uri());
+        Mock::given(method("GET"))
+            .and(path("/rpcs.json"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(chain_json))
+            .mount(&server)
+            .await;
+
+        let svc = ChainlistService::with_client_and_url(
+            Duration::from_secs(3600),
+            reqwest::Client::new(),
+            url,
+        );
+        let urls = svc.rpc_urls_for_chain(42).await.unwrap().expect("urls");
+        assert_eq!(
+            urls,
+            vec!["https://a.test".to_string(), "https://b.test".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn rpc_urls_for_chain_none_when_missing_chain() {
+        let server = MockServer::start().await;
+        let url = format!("{}/rpcs.json", server.uri());
+        Mock::given(method("GET"))
+            .and(path("/rpcs.json"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(sample_chain_json()))
+            .mount(&server)
+            .await;
+
+        let svc = ChainlistService::with_client_and_url(
+            Duration::from_secs(3600),
+            reqwest::Client::new(),
+            url,
+        );
+        assert!(svc.rpc_urls_for_chain(999).await.unwrap().is_none());
     }
 }
