@@ -2,11 +2,12 @@ use alloy::primitives::Address;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use log::{debug, info};
-use tap_caip::{AccountId, ChainId};
+use tap_caip::{AccountId, ChainId as CaipChainId};
 
 use crate::{
     repositories::{RepoError, Repository},
     token::{EvmTokenDetails, Token},
+    types::ChainId,
 };
 
 #[derive(Queryable, Insertable)]
@@ -59,7 +60,7 @@ impl Repository<Token<EvmTokenDetails>> for SqliteEvmTokenRepository {
                     .id
                     .parse::<AccountId>()
                     .expect("Failed to create account id");
-                let chain_id: ChainId = id.chain_id().clone();
+                let chain_id: CaipChainId = id.chain_id().clone();
                 let address: Address = id
                     .address()
                     .parse::<Address>()
@@ -94,15 +95,20 @@ impl Repository<Token<EvmTokenDetails>> for SqliteEvmTokenRepository {
 
         info!("Saving EVM token with id: {:?}", token.id);
 
-        let chain_id = token
+        let chain_id_numeric: ChainId = token
             .id
             .chain_id()
             .reference()
             .to_string()
-            .parse::<i32>()
-            .map_err(|e| {
-                RepoError::Backend(format!("Failed to parse chain id: {}", e.to_string()))
-            })?;
+            .parse::<ChainId>()
+            .map_err(|e| RepoError::Backend(format!("Failed to parse chain id: {}", e)))?;
+
+        let chain_id = i32::try_from(chain_id_numeric).map_err(|_| {
+            RepoError::Backend(format!(
+                "chain id {} does not fit i32 column",
+                chain_id_numeric
+            ))
+        })?;
 
         let new_token: DbEvmToken = DbEvmToken {
             id: token.id.to_string(),

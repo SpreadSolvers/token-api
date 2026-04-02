@@ -8,9 +8,7 @@ use log::info;
 use token_api::{
     handlers::{get_evm_token_metadata, get_evm_token_metadata_with_rpc_url, hello_world},
     repositories::sqlite::evm_token::SqliteEvmTokenRepository,
-    services::{
-        chainlist::ChainlistService, evm::EvmTokenService, provider::ProviderService,
-    },
+    services::{chainlist::ChainlistService, evm::EvmTokenService, provider::ProviderService},
 };
 
 const CHAINLIST_TTL: Duration = Duration::from_hours(24);

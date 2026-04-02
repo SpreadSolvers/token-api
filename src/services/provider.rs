@@ -14,7 +14,7 @@ use tokio::sync::RwLock;
 use tower::ServiceBuilder;
 use url::Url;
 
-use crate::services::chainlist::ChainlistService;
+use crate::{services::chainlist::ChainlistService, types::ChainId};
 
 /// Parallel transport fan-out for FallbackLayer (Alloy ranks latency + stability).
 const FALLBACK_ACTIVE_CAP: usize = 32;
@@ -23,7 +23,7 @@ const FALLBACK_ACTIVE_CAP: usize = 32;
 pub struct ProviderService {
     chainlist: ChainlistService,
     provider_ttl: Duration,
-    cache: Arc<RwLock<HashMap<i64, CachedClient>>>,
+    cache: Arc<RwLock<HashMap<ChainId, CachedClient>>>,
 }
 
 struct CachedClient {
@@ -51,7 +51,7 @@ impl ProviderService {
     /// Cached [`RpcClient`] over Chainlist RPCs using Alloy `FallbackLayer` (keeps transport rankings until TTL).
     pub async fn rpc_client_for_chain(
         &self,
-        chain_id: i64,
+        chain_id: ChainId,
     ) -> Result<Option<RpcClient>, ProviderServiceError> {
         {
             let guard = self.cache.read().await;
@@ -120,7 +120,7 @@ mod tests {
 
     use super::*;
 
-    fn chainlist_with_rpc(url: &str, chain_id: i64) -> serde_json::Value {
+    fn chainlist_with_rpc(url: &str, chain_id: ChainId) -> serde_json::Value {
         json!([{
             "name": "Test",
             "chain": "TST",

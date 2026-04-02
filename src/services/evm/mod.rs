@@ -11,11 +11,12 @@ use alloy::{
     providers::{Provider, ProviderBuilder},
     rpc::client::RpcClient,
 };
-use tap_caip::{AccountId, ChainId};
+use tap_caip::{AccountId, ChainId as CaipChainId};
 
 use crate::{
     repositories::sqlite::evm_token::SqliteEvmTokenRepository,
     token::{EvmTokenDetails, Token, TokenId},
+    types::ChainId,
 };
 
 #[derive(Clone)]
@@ -32,12 +33,12 @@ impl EvmTokenService {
 
     pub async fn get_or_fetch_token(
         &self,
-        chain_id: i64,
+        chain_id: ChainId,
         address: Address,
         rpc: RpcClient,
     ) -> Result<Token<EvmTokenDetails>, EvmTokenServiceError> {
         let token_id: TokenId = TokenId::new(
-            ChainId::new(EVM_NAMESPACE, &chain_id.to_string()).unwrap(),
+            CaipChainId::new(EVM_NAMESPACE, &chain_id.to_string()).unwrap(),
             &address.to_string(),
         )?;
 
@@ -58,7 +59,7 @@ impl EvmTokenService {
     }
 
     async fn fetch_token(
-        chain_id: i64,
+        chain_id: ChainId,
         address: Address,
         rpc: RpcClient,
     ) -> Result<Token<EvmTokenDetails>, EvmTokenServiceError> {
@@ -87,7 +88,7 @@ impl EvmTokenService {
             ));
         };
 
-        let chain_id = ChainId::new(EVM_NAMESPACE, &chain_id.to_string())
+        let chain_id = CaipChainId::new(EVM_NAMESPACE, &chain_id.to_string())
             .expect("Failed to create CAIP chain id")
             .clone();
 

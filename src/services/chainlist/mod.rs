@@ -3,7 +3,10 @@ use std::sync::Arc;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use tokio::sync::RwLock;
 
-use crate::chainlist::{CHAINLIST_API_URL, Chain, fetch_chains};
+use crate::{
+    chainlist::{CHAINLIST_API_URL, Chain, fetch_chains},
+    types::ChainId,
+};
 
 #[derive(Clone)]
 pub struct ChainlistService {
@@ -75,7 +78,7 @@ impl ChainlistService {
         Ok(chains)
     }
 
-    pub async fn get_chain_data(&self, chain_id: i64) -> Result<Option<Chain>, reqwest::Error> {
+    pub async fn get_chain_data(&self, chain_id: ChainId) -> Result<Option<Chain>, reqwest::Error> {
         let chains = self.chains_shared().await?;
         Ok(chains.iter().find(|c| c.chain_id == chain_id).cloned())
     }
@@ -83,7 +86,7 @@ impl ChainlistService {
     /// Trimmed, non-empty RPC URLs from Chainlist for `chain_id` (no liveness checks).
     pub async fn rpc_urls_for_chain(
         &self,
-        chain_id: i64,
+        chain_id: ChainId,
     ) -> Result<Option<Vec<String>>, reqwest::Error> {
         let Some(chain) = self.get_chain_data(chain_id).await? else {
             return Ok(None);

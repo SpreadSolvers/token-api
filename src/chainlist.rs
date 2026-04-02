@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::types::ChainId;
+
 pub(crate) const CHAINLIST_API_URL: &str = "https://chainlist.org/rpcs.json";
 
 #[derive(Deserialize, Debug, Clone)]
@@ -7,7 +9,7 @@ pub struct Chain {
     pub name: String,
     pub chain: String,
     #[serde(rename = "chainId")]
-    pub chain_id: i64,
+    pub chain_id: ChainId,
     pub rpc: Vec<Rpc>,
 }
 

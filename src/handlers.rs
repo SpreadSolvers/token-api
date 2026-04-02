@@ -11,11 +11,12 @@ use crate::{
         provider::{ProviderService, ProviderServiceError},
     },
     token::{EvmTokenDetails, Token},
+    types::ChainId,
 };
 
 #[derive(Deserialize)]
 pub struct GetEvmTokenMetadata {
-    chain_id: i64,
+    chain_id: ChainId,
     address: String,
 }
 
@@ -35,7 +36,7 @@ pub async fn get_evm_token_metadata(
 
 #[derive(Deserialize)]
 pub struct GetEvmTokenMetadataParamsWithRpcUrl {
-    chain_id: i64,
+    chain_id: ChainId,
     address: String,
     rpc_url: String,
 }
