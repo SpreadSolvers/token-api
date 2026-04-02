@@ -15,7 +15,7 @@ use tap_caip::{AccountId, ChainId as CaipChainId};
 
 use crate::{
     repositories::sqlite::evm_token::SqliteEvmTokenRepository,
-    token::{EvmTokenDetails, Token, TokenId},
+    token::{Token, TokenId},
     types::ChainId,
 };
 
@@ -36,7 +36,7 @@ impl EvmTokenService {
         chain_id: ChainId,
         address: Address,
         rpc: RpcClient,
-    ) -> Result<Token<EvmTokenDetails>, EvmTokenServiceError> {
+    ) -> Result<Token, EvmTokenServiceError> {
         let token_id: TokenId = TokenId::new(
             CaipChainId::new(EVM_NAMESPACE, &chain_id.to_string()).unwrap(),
             &address.to_string(),
@@ -62,7 +62,7 @@ impl EvmTokenService {
         chain_id: ChainId,
         address: Address,
         rpc: RpcClient,
-    ) -> Result<Token<EvmTokenDetails>, EvmTokenServiceError> {
+    ) -> Result<Token, EvmTokenServiceError> {
         let provider = ProviderBuilder::new().connect_client(rpc);
 
         let chain_id_from_provider: u64 = provider.get_chain_id().await?;
@@ -95,12 +95,11 @@ impl EvmTokenService {
         let account_id = AccountId::new(chain_id.clone(), &address.to_string())
             .expect("Failed to create account id");
 
-        let token: Token<EvmTokenDetails> = Token::<EvmTokenDetails> {
+        let token: Token = Token {
             id: account_id,
-            details: EvmTokenDetails { chain_id, address },
+            name,
             symbol,
             decimals,
-            name,
         };
 
         Ok(token)

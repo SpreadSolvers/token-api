@@ -10,7 +10,7 @@ use crate::{
         evm::EvmTokenService,
         provider::{ProviderService, ProviderServiceError},
     },
-    token::{EvmTokenDetails, Token},
+    token::Token,
     types::ChainId,
 };
 
@@ -24,7 +24,7 @@ pub async fn get_evm_token_metadata(
     Params(params): Params<GetEvmTokenMetadata>,
     evm_token_service: jsonrpc_v2::Data<EvmTokenService>,
     provider_service: jsonrpc_v2::Data<ProviderService>,
-) -> Result<Token<EvmTokenDetails>, jsonrpc_v2::Error> {
+) -> Result<Token, jsonrpc_v2::Error> {
     let rpc = provider_service
         .rpc_client_for_chain(params.chain_id)
         .await
@@ -44,7 +44,7 @@ pub struct GetEvmTokenMetadataParamsWithRpcUrl {
 pub async fn get_evm_token_metadata_with_rpc_url(
     Params(params): Params<GetEvmTokenMetadataParamsWithRpcUrl>,
     evm_token_service: jsonrpc_v2::Data<EvmTokenService>,
-) -> Result<Token<EvmTokenDetails>, jsonrpc_v2::Error> {
+) -> Result<Token, jsonrpc_v2::Error> {
     let url = params
         .rpc_url
         .parse::<reqwest::Url>()
@@ -67,7 +67,7 @@ async fn get_evm_token_metadata_with_rpc_client(
     params: GetEvmTokenMetadata,
     rpc: RpcClient,
     evm_token_service: jsonrpc_v2::Data<EvmTokenService>,
-) -> Result<Token<EvmTokenDetails>, jsonrpc_v2::Error> {
+) -> Result<Token, jsonrpc_v2::Error> {
     let chain_id = params.chain_id;
     let evm_address = params.address;
 

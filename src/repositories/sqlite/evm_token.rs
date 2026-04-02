@@ -1,12 +1,11 @@
-use alloy::primitives::Address;
 use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use log::{debug, info};
-use tap_caip::{AccountId, ChainId as CaipChainId};
+use tap_caip::AccountId;
 
 use crate::{
     repositories::{RepoError, Repository},
-    token::{EvmTokenDetails, Token},
+    token::Token,
     types::ChainId,
 };
 
@@ -40,8 +39,8 @@ impl SqliteEvmTokenRepository {
     }
 }
 
-impl Repository<Token<EvmTokenDetails>> for SqliteEvmTokenRepository {
-    fn get(&self, id: AccountId) -> Result<Option<Token<EvmTokenDetails>>, RepoError> {
+impl Repository<Token> for SqliteEvmTokenRepository {
+    fn get(&self, id: AccountId) -> Result<Option<Token>, RepoError> {
         let mut connection: PooledConnection<ConnectionManager<SqliteConnection>> = self
             .pool
             .get()
@@ -60,15 +59,9 @@ impl Repository<Token<EvmTokenDetails>> for SqliteEvmTokenRepository {
                     .id
                     .parse::<AccountId>()
                     .expect("Failed to create account id");
-                let chain_id: CaipChainId = id.chain_id().clone();
-                let address: Address = id
-                    .address()
-                    .parse::<Address>()
-                    .expect("Failed to create address");
 
-                let token: Token<EvmTokenDetails> = Token::<EvmTokenDetails> {
+                let token: Token = Token {
                     id,
-                    details: EvmTokenDetails { chain_id, address },
                     symbol: token.symbol,
                     decimals: token.decimals as u8,
                     name: token.name,
@@ -83,7 +76,7 @@ impl Repository<Token<EvmTokenDetails>> for SqliteEvmTokenRepository {
         };
     }
 
-    fn save(&self, token: &Token<EvmTokenDetails>) -> Result<(), RepoError> {
+    fn save(&self, token: &Token) -> Result<(), RepoError> {
         // Acquire a pooled connection for this operation
         let mut connection: PooledConnection<ConnectionManager<SqliteConnection>> = self
             .pool
