@@ -29,17 +29,26 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     cargo build --release --locked
 
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    cargo install diesel_cli --no-default-features --features sqlite --locked
+
 FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates libsqlite3-0 \
+    && apt-get install -y --no-install-recommends ca-certificates curl libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --home-dir /nonexistent --shell /usr/sbin/nologin appuser \
     && mkdir -p /data \
     && chown appuser:appuser /data
 
+COPY --from=builder /usr/local/cargo/bin/diesel /usr/local/bin/diesel
 COPY --from=builder /app/target/release/token-api /usr/local/bin/token-api
 COPY migrations /app/migrations
+COPY diesel.toml /app/diesel.toml
+COPY diesel.docker.toml /app/diesel.docker.toml
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 WORKDIR /data
 USER appuser
@@ -52,7 +61,4 @@ ENV RUST_LOG=info \
 
 EXPOSE 8080
 
-# Run SQL migrations against the same DATABASE_URL before first boot (e.g. `diesel migration run`
-# from your machine, or a CI step), then start this container.
-
-CMD ["token-api"]
+ENTRYPOINT ["/entrypoint.sh"]

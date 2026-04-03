@@ -1,0 +1,5 @@
+# Runtime / Docker: migrations only (no print_schema → no writes under /app/src).
+# Local dev keeps using diesel.toml with [print_schema] for `diesel print-schema`.
+
+[migrations_directory]
+dir = "migrations"
