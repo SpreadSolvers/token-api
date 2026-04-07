@@ -4,10 +4,14 @@ build:
 
 .PHONY: run
 run:
-	docker run -d --name token-api -p 7777:8080 -v "$(PWD)/db:/data" token-api
+	docker run --rm -d --name token-api -p 7777:8080 -e RUST_LOG=debug -e APP_ENV=development -e DATABASE_URL=file:$(pwd)/data/token-api.db -v "$(PWD)/db:/data" token-api
 
 .PHONY: stop
 stop:
 	docker stop token-api
+
+.PHONY: logs
+logs:
+	docker logs -f token-api
 
 .PHONY: clean
