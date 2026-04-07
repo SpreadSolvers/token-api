@@ -42,7 +42,7 @@ USER appuser
 ENV RUST_LOG=debug \
     HOST=0.0.0.0 \
     PORT=8080 \
-    WORKERS=2 \
+    WORKERS=2
 
 EXPOSE 8080
 
