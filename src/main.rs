@@ -1,5 +1,6 @@
 use std::{env, time::Duration};
 
+use actix_cors::Cors;
 use actix_web::{App, HttpServer, web::Data};
 use dotenv::dotenv;
 use jsonrpc_v2::Server;
@@ -36,6 +37,14 @@ async fn main() -> std::io::Result<()> {
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
+    let dev_cors = matches!(
+        env::var("APP_ENV").as_deref(),
+        Ok("development") | Ok("dev")
+    );
+    if dev_cors {
+        info!("APP_ENV=development: permissive CORS enabled");
+    }
+
     let evm_token_repository = SqliteEvmTokenRepository::new(database_url);
 
     let evm_token_service = EvmTokenService::new(evm_token_repository);
@@ -57,7 +66,13 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         let rpc = rpc.clone();
+        let cors = if dev_cors {
+            Cors::permissive()
+        } else {
+            Cors::default()
+        };
         App::new()
+            .wrap(cors)
             .app_data(Data::new(evm_token_service.clone()))
             .service(hello_world)
             .service(
